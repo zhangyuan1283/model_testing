@@ -1,0 +1,9 @@
+# virtual environment
+/venv/
+
+# image folders
+/output_images/
+
+# model files
+/models/
+
