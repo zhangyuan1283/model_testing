@@ -2,6 +2,7 @@ import os
 import cv2
 import onnxruntime as ort
 import numpy as np
+import time
 
 import os
 import cv2
@@ -63,18 +64,35 @@ def run_onnx_model(onnx_model_path, input_images_dir, output_base_dir):
             print(f"Skipping non-image file: {filename}")
             continue
         try:
-            # Preprocess the image
+            # start timer
+            start_time = time.time()
+            # # Preprocess the image
             input_image = preprocess_image(image_path, input_size)
             
-            # Run the ONNX model
+            # # Run the ONNX model
             inputs = {session.get_inputs()[0].name: input_image}
             outputs = session.run(None, inputs)
-            
-            # Postprocess and save the output
-            output_image = np.squeeze(outputs[0])  # Remove batch dimension
-            output_image = (output_image * 255).astype(np.uint8)  # Scale back to [0, 255]
-            output_image = cv2.cvtColor(output_image, cv2.COLOR_RGB2BGR)  # Convert back to BGR
-            output_path = os.path.join(output_images_dir, filename)
+
+            output_mask = np.squeeze(outputs[0])  # Remove batch dimension
+            output_mask = (output_mask * 255).astype(np.uint8)  # Scale mask to [0, 255]
+
+            # Threshold the mask for binary segmentation
+            _, binary_mask = cv2.threshold(output_mask, 128, 255, cv2.THRESH_BINARY)
+
+            # Load the original image for applying the mask
+            original_image = cv2.imread(image_path)
+            original_image = cv2.resize(original_image, input_size)
+
+            # Create the final output: background black, foreground visible
+            output_image = cv2.bitwise_and(original_image, original_image, mask=binary_mask)
+
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+
+            filename_wo_ext, ext = os.path.splitext(filename)
+            output_filename = f"{filename_wo_ext}_{elapsed_time:.2f}s{ext}"  # Append time in seconds
+            output_path = os.path.join(output_images_dir, output_filename)
+
             cv2.imwrite(output_path, output_image)
             print(f"Processed and saved: {output_path}")
         except Exception as e:
