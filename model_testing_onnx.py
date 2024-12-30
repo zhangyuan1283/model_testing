@@ -3,13 +3,21 @@ import cv2
 import onnxruntime as ort
 import numpy as np
 import time
+import os
+from typing import Dict, List, Tuple
+
+import numpy as np
+import onnxruntime as ort
+from PIL import Image
+from PIL.Image import Image as PILImage
 
 import os
 import cv2
 import onnxruntime as ort
 import numpy as np
 
-def preprocess_image(image_path, input_size):
+# def preprocess_image(image_path, input_size, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
+def preprocess_image(image_path, input_size, mean=(0.485, 0.456, 0.406), std=(1.0, 1.0, 1.0)):
     """
     Preprocesses the input image for the ONNX model.
     Args:
@@ -18,13 +26,31 @@ def preprocess_image(image_path, input_size):
     Returns:
         np.ndarray: Preprocessed image.
     """
+    # original code without normalization
+
+    # image = cv2.imread(image_path, cv2.IMREAD_COLOR)
+    # if image is None:
+    #     raise FileNotFoundError(f"Image file '{image_path}' not found or cannot be read.")
+    # image = cv2.resize(image, input_size)
+    # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
+    # image = np.transpose(image, (2, 0, 1))
+    # return np.expand_dims(image, axis=0)
+
+    # normalize for all 3 channels
     image = cv2.imread(image_path, cv2.IMREAD_COLOR)
     if image is None:
         raise FileNotFoundError(f"Image file '{image_path}' not found or cannot be read.")
+    
+    # Resize and convert color format
     image = cv2.resize(image, input_size)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
-    image = np.transpose(image, (2, 0, 1))
-    return np.expand_dims(image, axis=0)
+
+    # Normalize with mean and std
+    image = (image - mean) / std
+
+    # Convert to the required shape
+    image = np.transpose(image, (2, 0, 1))  # HWC to CHW
+    return np.expand_dims(image, axis=0).astype(np.float32)  # Add batch dimension
 
 def get_model_input_size(onnx_model_path):
     """
@@ -99,7 +125,7 @@ def run_onnx_model(onnx_model_path, input_images_dir, output_base_dir):
             print(f"Error processing {filename}: {e}")
 
 # Parameters
-onnx_model_path = "./models/HRSOD.onnx"  # Path to the ONNX model
+onnx_model_path = "./models/isnet-general.onnx"  # Path to the ONNX model
 input_images_dir = "./input_images"  # Directory containing input images
 output_base_dir = "./output_images"  # Base directory for all output images
 
